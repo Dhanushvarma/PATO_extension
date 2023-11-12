@@ -1,0 +1,17 @@
+name: cvae_env
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.8  # Specify the Python version
+  - pytorch=1.8.1  # Adjust version as needed
+  - torchvision=0.9.1  # Adjust version as needed
+  - cudatoolkit=10.2  # Match with your CUDA version, if you're using GPU
+  - numpy
+  - scipy
+  - matplotlib  # For plotting and visualization
+  - pandas  # If you are dealing with tabular data
+  - jupyter  # For Jupyter notebooks, if you use them
+  - pip
+  - pip:
+      - torchinfo  # For detailed model summaries (optional)
