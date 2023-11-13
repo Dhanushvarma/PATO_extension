@@ -15,10 +15,10 @@ class CVAE(nn.Module):
         eps = torch.randn_like(std)
         return mean + eps * std
 
-    def forward(self, x):
+    def forward(self, x, state):
         mean, log_var = self.encoder(x)
         z = self.reparameterize(mean, log_var)
-        return self.decoder(z), mean, log_var
+        return self.decoder(z, state), mean, log_var
 
-    def generate(self, z):
-        return self.decoder(z)
+    def generate(self, z, state):
+        return self.decoder(z, state)
