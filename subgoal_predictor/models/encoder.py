@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class Encoder(nn.Module):
-    def __init__(self, input_dim, latent_dim):
+    def __init__(self, state_dim, goal_dim, latent_dim):
         super(Encoder, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 128)
+        self.fc1 = nn.Linear(state_dim + goal_dim, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 128)
         self.fc4 = nn.Linear(128, 128)
@@ -13,7 +14,8 @@ class Encoder(nn.Module):
         self.mean = nn.Linear(128, latent_dim)
         self.log_var = nn.Linear(128, latent_dim)
 
-    def forward(self, x):
+    def forward(self, state, goal):
+        x = torch.cat((state, goal), dim=1)
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))

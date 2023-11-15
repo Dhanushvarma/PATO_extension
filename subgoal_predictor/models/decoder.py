@@ -5,6 +5,12 @@ import torch.nn.functional as F
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim, state_dim, output_dim):
+        """
+
+        :param latent_dim: Size of the latent space which is 128
+        :param state_dim: State dimension which is currently 32
+        :param output_dim: Output is also a state, so it should also be 32
+        """
         super(Decoder, self).__init__()
         self.fc1 = nn.Linear(latent_dim + state_dim, 128)  # Adjust input dimension
         self.fc2 = nn.Linear(128, 128)

@@ -20,6 +20,10 @@ class HDF5Dataset(Dataset):
         self.transform = transform
         self.horizon = horizon
         self.state_curr, self.state_goal, self.actions_curr, self.model_file_curr = self.load_all_demos()
+
+        self.input_dim = 32  # TODO: change the hard coding
+        self.output_dim = 32
+
     def __len__(self):
         return len(self.demos)
 
@@ -35,7 +39,7 @@ class HDF5Dataset(Dataset):
             states = demo_group['states'][:][0]
             # print(states)
             actions = demo_group['actions'][:][0]
-            model_file = demo_group.attrs['model_file'][0]
+            model_file = demo_group.attrs['model_file']
 
             goal_states = np.zeros_like(states)
             goal_states[:-self.horizon] = states[self.horizon:]
@@ -59,6 +63,10 @@ class HDF5Dataset(Dataset):
             action_c = self.actions_curr[idx]
 
         model_file_c = self.model_file_curr[idx]
+
+        # Converting to float
+        state_c = state_c.astype(np.float32)
+        state_g = state_g.astype(np.float32)
 
         return state_c, state_g, action_c, model_file_c
 
@@ -96,7 +104,8 @@ file_path = '/home/dpenmets/robosuite/robosuite/models/assets/demonstrations/169
 train_loader = DataLoader(HDF5Dataset(file_path, horizon=5), batch_size=1, shuffle=True)
 
 for state_c, state_g, action_c, model_file_c in train_loader:
-    print(state_c)
-    print(state_g)
+    # print(state_c)
+    # print(state_g)
+    # print(action_c)
     break
     pass

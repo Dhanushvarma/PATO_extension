@@ -4,9 +4,9 @@ channels:
   - defaults
 dependencies:
   - python=3.8  # Specify the Python version
-  - pytorch=1.8.1  # Adjust version as needed
-  - torchvision=0.9.1  # Adjust version as needed
-  - cudatoolkit=10.2  # Match with your CUDA version, if you're using GPU
+  - pytorch=2.1.0  # Updated to the latest stable version
+  - torchvision=0.16.0  # Updated version compatible with PyTorch 2.1.0
+  - cudatoolkit  # Updated to match your CUDA version
   - numpy
   - scipy
   - matplotlib  # For plotting and visualization
