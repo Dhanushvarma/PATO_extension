@@ -1,4 +1,7 @@
 import wandb
+import yaml
+import torch
+import torch.nn.functional as F
 
 
 def initialize_wandb(project_name, entity_name, config_params):
@@ -14,3 +17,29 @@ def initialize_wandb(project_name, entity_name, config_params):
     wandb_run = wandb.init(project=project_name, entity=entity_name, config=config_params)
 
     return wandb_run
+
+
+def load_config(yaml_file_path):
+    with open(yaml_file_path, 'r') as file:
+        return yaml.safe_load(file)
+
+
+def save_checkpoint(model, optimizer, step, checkpoint_dir):
+    checkpoint_state = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "step": step}
+    checkpoint_path = checkpoint_dir / f"model.ckpt-{step}.pt"
+    torch.save(checkpoint_state, checkpoint_path)
+    print(f"Saved checkpoint: {checkpoint_path}")
+
+
+def vae_loss(reconstructed, original, mean, log_var):
+    # Reconstruction Loss (using Mean Squared Error)
+    recon_loss = F.mse_loss(reconstructed, original, reduction='sum')
+
+    # KL Divergence
+    kl_div = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+
+    # Total Loss
+    return recon_loss + kl_div, recon_loss, kl_div

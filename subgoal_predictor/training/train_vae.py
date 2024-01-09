@@ -1,79 +1,101 @@
+import argparse
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import sys
-sys.path.append('/home/dpenmets/PycharmProjects/PATO_extension' )
+import minari
+import wandb
+import subgoal_predictor.utils.common_utils as CU
+sys.path.append('/home/dpenmets/PycharmProjects/PATO_extension')
 from torch.utils.data import DataLoader
 from subgoal_predictor.models.vae import CVAE
-from subgoal_predictor.utils.data_loader import HDF5Dataset
-from subgoal_predictor.utils.common_utils import initialize_wandb
-
-# Configuration parameters
-config_params = {
-    'learning_rate': 0.001,
-    'epochs': 1000,
-    'batch_size': 32
-}
+from subgoal_predictor.utils.minari_dataloader import MinariObservationDataset, collate_fn
 
 
-# Initialize WandB
-wandb_run = initialize_wandb('pato_extension', 'dpenmets', config_params)
 
 
-# Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def train_cvae(config):
+    wandb.init(project=config['wandb_project'], entity=config['wandb_entity'], name=config['wandb_name'])
 
-# Load Data
-train_dataset = HDF5Dataset('/home/dpenmets/robosuite/robosuite/models/assets/demonstrations/1699818905_9049585/demo'
-                            '.hdf5' , horizon=5)
-train_loader = DataLoader(train_dataset, batch_size=config_params['batch_size'], shuffle=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = CVAE(config['state_dim'], config['latent_dim']).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
 
-# Initialize model
-input_dim = train_dataset.input_dim
-output_dim = train_dataset.output_dim
-latent_dim = 128  # Example latent dimension
-model = CVAE(input_dim, input_dim, latent_dim, output_dim).to(device)
+    # Optional: resume from checkpoint
+    if config.get('resume'):
+        print(f"Resume checkpoint from: {config['resume']}")
+        checkpoint = torch.load(config['resume'], map_location=device)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        global_step = checkpoint["step"]
+    else:
+        global_step = 0
 
-# Loss and optimizer
-criterion = nn.MSELoss()  # Example criterion
-optimizer = optim.Adam(model.parameters(), lr=config_params['learning_rate'])
+    # Setup DataLoader
+    h = config['horizon']  # Define your timestep gap
+    minari_dataset = minari.load_dataset("pointmaze-umaze-v1")
+    minari_observation_dataset = MinariObservationDataset(minari_dataset, h)
 
-# Training Loop
-for epoch in range(config_params['epochs']):
-    model.train()
-    running_loss = 0.0
+    # Split observation_dataset into training and testing sets
+    split_index = int(len(minari_observation_dataset) * config['train_split'])
+    train_dataset = minari_observation_dataset[:split_index]
+    test_dataset = minari_observation_dataset[split_index:]
 
-    for i, (state_c, state_g, action_c, model_file_c) in enumerate(train_loader):
-        # Move tensors to the configured device
-        state_c = state_c.float().to(device)
-        state_g = state_g.float().to(device)
+    # Create DataLoaders for train and test sets
+    train_dataloader = DataLoader(train_dataset, batch_size=config['batch_size'], collate_fn=collate_fn)
+    test_dataloader = DataLoader(test_dataset, batch_size=config['batch_size'], collate_fn=collate_fn)
 
-        print("state_c type", state_c)
-        print("state_g type", state_g)
-        # Forward pass
-        output, mean, log_var = model(state_c, state_g)
-        # Reconstruction loss
-        recon_loss = criterion(output, state_g)
-        # KL divergence loss
-        kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-        # Total loss
-        loss = recon_loss + kl_loss
+    for epoch in range(config['num_epochs']):
+        model.train()
+        train_loss = 0.0
+        for batch_idx, (s_t, s_g) in enumerate(train_dataloader):
+            s_t, s_g = s_t.to(device), s_g.to(device)
 
-        # Backward and optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Forward pass
+            reconstructed, mean, log_var = model(s_t, s_g)
 
-        running_loss += loss.item()
+            # Compute loss
+            loss, recon_loss, kl_div = CU.vae_loss(reconstructed, s_g, mean, log_var)
 
-    # Log training metrics
-    wandb_run.log({'epoch': epoch, 'loss': running_loss / len(train_loader)})
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    print(f'Epoch [{epoch+1}/{config_params["epochs"]}], Loss: {running_loss / len(train_loader):.4f}')
+            train_loss += loss.item()
 
-# Save the model
-torch.save(model.state_dict(), 'cvae_model.pth')
-wandb_run.save('cvae_model.pth')
+            # Log training batch metrics to wandb
+            wandb.log({"train_loss": loss.item(), "train_recon_loss": recon_loss.item(), "train_kl_div": kl_div.item(),
+                       "epoch": epoch})
+
+        # Average training loss
+        train_loss /= len(train_dataset)
+        wandb.log({"average_train_loss": train_loss, "epoch": epoch})
+
+        # Validation loop
+        model.eval()
+        test_loss = 0.0
+        with torch.no_grad():
+            for batch_idx, (s_t, s_g) in enumerate(test_dataloader):
+                s_t, s_g = s_t.to(device), s_g.to(device)
+                reconstructed, mean, log_var = model(s_t, s_g)
+                loss, recon_loss, kl_div = CU.vae_loss(reconstructed, s_g, mean, log_var)
+                test_loss += loss.item()
+
+                # Optionally log individual batch metrics for testing
+                # wandb.log({"test_loss": loss.item(), "epoch": epoch})
+
+        # Average testing loss
+        test_loss /= len(test_dataset)
+        wandb.log({"average_test_loss": test_loss, "epoch": epoch})
+
+        print(f"Epoch {epoch}: Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}")
 
 
-print("Training complete")
+if __name__ == "__main__":
+    # Load configuration from a YAML file
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
+    args = parser.parse_args()
+
+    input_config = load_config(args.config)
+    train_cvae(input_config)

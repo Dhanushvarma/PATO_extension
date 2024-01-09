@@ -1,0 +1,25 @@
+# Model Configuration
+state_dim: 32        # Dimension of the input state
+latent_dim: 10       # Dimension of the latent space
+
+# Training Configuration
+learning_rate: 0.001  # Learning rate for the optimizer
+batch_size: 64        # Batch size for data loading
+num_epochs: 20        # Total number of training epochs
+horizon: 5            # Timestep gap for (s_t, s_g) pairs
+train_split: 0.8      # Split ratio for training data (80% training, 20% testing)
+
+# Data Loading Configuration
+minari_dataset_name: 'pointmaze-umaze-v1'  # Name of the Minari dataset to load
+
+# wandb Integration
+wandb_project: 'cvae-project'       # Project name in wandb
+wandb_entity: 'your-entity'         # Your wandb entity (username or team name)
+wandb_name: 'cvae-experiment'       # Name for this particular run/experiment
+
+# Checkpointing
+save_checkpoint_steps: 1000        # Frequency of checkpoint saving (every 1000 steps)
+checkpoint_dir: './checkpoints'    # Directory to save checkpoints
+
+# DataLoader Configuration
+num_workers: 4                      # Number of worker threads for data loading

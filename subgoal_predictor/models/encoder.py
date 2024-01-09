@@ -4,9 +4,10 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, state_dim, goal_dim, latent_dim):
+    def __init__(self, state_dim, latent_dim):
         super(Encoder, self).__init__()
-        self.fc1 = nn.Linear(state_dim + goal_dim, 128)
+        # State_dim*2 as we provide both s_t and s_g
+        self.fc1 = nn.Linear(state_dim * 2, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 128)
         self.fc4 = nn.Linear(128, 128)
