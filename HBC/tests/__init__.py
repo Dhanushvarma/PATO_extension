@@ -1,0 +1,1 @@
+from subgoal_predictor import TestCVAE
