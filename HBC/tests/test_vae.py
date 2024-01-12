@@ -1,6 +1,6 @@
 import torch
 import unittest
-from subgoal_predictor.models.vae import CVAE  # Ensure this points to your CVAE model
+from HBC.models.vae import CVAE  # Ensure this points to your CVAE model
 from torchsummary import summary
 
 

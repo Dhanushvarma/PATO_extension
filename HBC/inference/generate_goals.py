@@ -1,4 +1,4 @@
-from subgoal_predictor.models.vae import CVAE
+from HBC.models.vae import CVAE
 import torch
 
 ###
